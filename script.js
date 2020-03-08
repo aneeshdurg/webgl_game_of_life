@@ -38,6 +38,13 @@ class Game {
 
         this.vertShaderUrl = vertShaderUrl;
         this.fragShaderUrl = fragShaderUrl;
+
+        // this.com_canvas = document.createElement("canvas");
+        // this.com_canvas.width = this.texture_data_width;
+        // this.com_canvas.height = this.texture_data_height;
+        // this.com_gl = this.com_canvas.getContext("webgl");
+        // assert(this.com_gl);
+
         console.log("Game object created");
     }
 
@@ -135,7 +142,6 @@ class Game {
         this.gl.clearColor(0.0, 0.0, 0.5, 1.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-
         //Directly before call to gl.drawArrays:
         this.gl.enableVertexAttribArray(this.positionLocation);
         this.gl.vertexAttribPointer(this.positionLocation, 2, this.gl.FLOAT, false, 0, 0);
@@ -161,6 +167,12 @@ class Game {
         this.texture = this.gl.createTexture();
         assert(this.texture, "Failed to create texture!");
 
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+
         // TODO create consts for glsl variable names
         // TODO change texture id
         this.gl.uniform1i(this.gl.getUniformLocation(this.shaderProgram, "u_texture"), 1 /* texture id */);
@@ -169,13 +181,6 @@ class Game {
     }
 
     updateTexture() {
-        this.gl.activeTexture(this.gl.TEXTURE1);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
         this.gl.texImage2D(
             this.gl.TEXTURE_2D,
             0, //LEVEL
