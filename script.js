@@ -24,8 +24,8 @@ class Game {
         this.texture_data_height = 128;
         this.texture_data_component_length = 4;// RGBA
 
-        this.tile_width = 32;
-        this.tile_height = 32;
+        this.tile_width = 5;
+        this.tile_height = 5;
 
         this.canvas = canvas;
         this.canvas.width = 640;
@@ -68,12 +68,23 @@ class Game {
         this.computeVars = {};
 
         console.log("Game object created");
+
+        this.paused = false;
+        this.framerate_fps = 0.75;
     }
 
     async main() {
         await this.initShaders();
         await this.comInitShaders();
         console.log("Shaders initialized!");
+
+        // Create and bind the framebuffer
+        const fb = this.com_gl.createFramebuffer();
+        this.com_gl.bindFramebuffer(this.com_gl.FRAMEBUFFER, fb);
+        this.com_fb = fb;
+        if (!this.com_gl.isFramebuffer(this.com_fb)) {
+            throw("Invalid framebuffer after creation");
+        }
 
         this.setupTexture();
         console.log("Texture initialized!");
@@ -109,6 +120,40 @@ class Game {
         const pixel = this.getPixel(tileXidx, tileYidx);
         console.log("        old value:", pixel);
         this.setPixel(tileXidx, tileYidx, [255 - pixel[R], 255 - pixel[G], 255 - pixel[B], pixel[A]]);
+        this.updateTexture();
+    }
+
+    pause_game() {
+        this.paused = !this.paused;
+    }
+
+
+    step() {
+        if (this.paused)
+            this.step_ = true;
+    }
+
+    set_fps(fps) {
+        const val = parseFloat(fps)
+        if (!isNaN(val)) {
+            console.log("setting fps", parseFloat(fps));
+            this.framerate_fps = val;
+        }
+    }
+
+    set_random() {
+        for (let i = 0; i < this.texture_data_width *  this.texture_data_height; i++) {
+            if (Math.random() <= 0.25) {
+                this.texture_data[this.active_tex][i * 4 + R] = 255;
+                this.texture_data[this.active_tex][i * 4 + G] = 255;
+                this.texture_data[this.active_tex][i * 4 + B] = 255;
+            } else {
+                this.texture_data[this.active_tex][i * 4 + R] = 0;
+                this.texture_data[this.active_tex][i * 4 + G] = 0;
+                this.texture_data[this.active_tex][i * 4 + B] = 0;
+            }
+        }
+
         this.updateTexture();
     }
 
@@ -177,29 +222,54 @@ class Game {
         console.log("Initialized GL compute program!");
     }
 
-    render() {
-        console.log("rendering...");
-        {
-            this.gl.clearColor(0.0, 0.0, 0.5, 1.0);
-            this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    render(timestamp) {
+        function _render(gl, position) {
+            gl.clearColor(0.0, 0.0, 0.5, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
 
             //Directly before call to gl.drawArrays:
-            this.gl.enableVertexAttribArray(this.renderVars["a_position"]);
-            this.gl.vertexAttribPointer(this.renderVars["a_position"], 2, this.gl.FLOAT, false, 0, 0);
-            this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
+            gl.enableVertexAttribArray(position);
+            gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
+        _render(this.gl, this.renderVars["a_position"]);
 
-        {
-            this.com_gl.clearColor(0.0, 0.0, 0.5, 1.0);
-            this.com_gl.clear(this.com_gl.COLOR_BUFFER_BIT);
+        this.com_gl.bindFramebuffer(this.com_gl.FRAMEBUFFER, this.com_fb);
+        _render(this.com_gl, this.computeVars["a_position"]);
+        this.com_gl.readPixels(
+            0,
+            0,
+            this.texture_data_width,
+            this.texture_data_width,
+            this.com_gl.RGBA,
+            this.com_gl.UNSIGNED_BYTE,
+            this.texture_data[1 - this.active_tex]);
 
-            //Directly before call to gl.drawArrays:
-            this.com_gl.enableVertexAttribArray(this.computeVars["a_position"]);
-            this.com_gl.vertexAttribPointer(this.computeVars["a_position"], 2, this.gl.FLOAT, false, 0, 0);
-            this.com_gl.drawArrays(this.com_gl.TRIANGLES, 0, 6);
+        // Uncomment the following for the debug display
+        // this.com_gl.bindFramebuffer(this.com_gl.FRAMEBUFFER, null);
+        // _render(this.com_gl, this.computeVars["a_position"]);
+
+        if (timestamp) {
+            if (!this.paused || this.step_) {
+                // TODO enable and disable compute/add frame rate mechanism
+                const delta = timestamp - this.last_timestamp;
+
+                if (this.step_ || delta > 1000.0/this.framerate_fps) {
+                    this.last_timestamp = timestamp;
+                    this.flip_flop();
+                    this.step_ = false;
+                }
+            }
+        } else {
+            this.last_timestamp = 0;
         }
 
         requestAnimationFrame(this.render.bind(this));
+    }
+
+    flip_flop() {
+        this.active_tex = 1 - this.active_tex;
+        this.updateTexture();
     }
 
     setupTexture() {
@@ -221,15 +291,13 @@ class Game {
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
 
         {
-            this.com_gl.activeTexture(this.com_gl.TEXTURE1);
-            this.com_texture = this.com_gl.createTexture();
-            assert(this.com_texture, "Failed to create compute texture!");
-            this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture);
+            this.com_texture = [this.com_gl.createTexture(), this.com_gl.createTexture()];
+            assert(this.com_texture[0], "Failed to create compute texture!");
+            assert(this.com_texture[1], "Failed to create compute texture1!");
 
-            this.com_gl.activeTexture(this.com_gl.TEXTURE2);
-            this.com_texture_1 = this.com_gl.createTexture();
-            assert(this.com_texture_1, "Failed to create compute texture1!");
-            this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture_1);
+            this.com_gl.activeTexture(this.com_gl.TEXTURE1);
+            this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture[0]);
+
         }
 
         function setTextureParams(gl) {
@@ -241,12 +309,12 @@ class Game {
         setTextureParams(this.gl);
 
         {
-            this.com_gl.activeTexture(this.com_gl.TEXTURE1);
+            this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture[0]);
             setTextureParams(this.com_gl);
-            this.com_gl.activeTexture(this.com_gl.TEXTURE2);
+            this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture[1]);
             setTextureParams(this.com_gl);
         }
-        this.com_gl.activeTexture(this.com_gl.TEXTURE1);
+        this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture[0]);
 
         // TODO create consts for glsl variable names
         // TODO change texture id
@@ -275,8 +343,48 @@ class Game {
             this.gl.UNSIGNED_BYTE, //srcType
             this.texture_data[this.active_tex]);
 
+        this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture[1 - this.active_tex]);
+        this.com_gl.texImage2D(
+            this.com_gl.TEXTURE_2D,
+            0, //LEVEL
+            this.com_gl.RGBA, //internalFormat,
+            128, // WIDTH
+            128, // HEIGHT
+            0, //border
+            this.com_gl.RGBA, //srcFormat
+            this.com_gl.UNSIGNED_BYTE, //srcType
+            this.texture_data[1 - this.active_tex]);
+        (function (gl) {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        })(this.com_gl);
+        this.com_gl.bindFramebuffer(this.com_gl.FRAMEBUFFER, this.com_fb);
+        if (!this.com_gl.isFramebuffer(this.com_fb)) {
+            throw("Invalid framebuffer before binding tex");
+        }
+
+        // attach the texture as the first color attachment
+        const attachmentPoint = this.com_gl.COLOR_ATTACHMENT0;
+        this.com_gl.bindFramebuffer(this.com_gl.FRAMEBUFFER, this.com_fb);
+        this.com_gl.framebufferTexture2D(
+            this.com_gl.FRAMEBUFFER,
+            attachmentPoint,
+            this.com_gl.TEXTURE_2D,
+            this.com_texture[1 - this.active_tex], // non active texture
+            0);
+
+        if (!this.com_gl.isFramebuffer(this.com_fb)) {
+            throw("Invalid framebuffer after binding tex");
+        }
+
+        this.com_gl.bindFramebuffer(this.com_gl.FRAMEBUFFER, null);
+        this.com_gl.bindFramebuffer(this.com_gl.FRAMEBUFFER, this.com_fb);
+
         // Set the input to the compute program to be the input to the render
         // program.
+        this.com_gl.bindTexture(this.com_gl.TEXTURE_2D, this.com_texture[this.active_tex]);
         this.com_gl.texImage2D(
             this.com_gl.TEXTURE_2D,
             0, //LEVEL
