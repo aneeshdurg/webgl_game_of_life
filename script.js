@@ -40,7 +40,8 @@ class Game {
         this.com_gl = this.com_canvas.getContext("webgl");
         assert(this.com_gl);
 
-        this.canvas.parentElement.appendChild(this.com_canvas);
+        // Uncomment the following for the debug display
+        // this.canvas.parentElement.appendChild(this.com_canvas);
 
         function setupVertexBuffer(gl) {
             const buffer = gl.createBuffer();
