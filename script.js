@@ -98,7 +98,14 @@ class Game {
         console.log("u_tile_height", this.tile_height);
 
         this.canvas.addEventListener('click', this.clickHandler.bind(this));
+        this.canvas.addEventListener('mousemove', this.moveHandler.bind(this));
         this.render();
+    }
+
+    moveHandler(e) {
+        if (e.buttons == 1) {
+            this.clickHandler(e);
+        }
     }
 
     clickHandler(e) {
@@ -123,7 +130,7 @@ class Game {
         this.updateTexture();
     }
 
-    pause_game() {
+    pause() {
         this.paused = !this.paused;
     }
 
@@ -133,7 +140,7 @@ class Game {
             this.step_ = true;
     }
 
-    set_fps(fps) {
+    setFps(fps) {
         const val = parseFloat(fps)
         if (!isNaN(val)) {
             console.log("setting fps", parseFloat(fps));
@@ -141,9 +148,9 @@ class Game {
         }
     }
 
-    set_random() {
+    randomize(probability) {
         for (let i = 0; i < this.texture_data_width *  this.texture_data_height; i++) {
-            if (Math.random() <= 0.25) {
+            if (Math.random() < probability) {
                 this.texture_data[this.active_tex][i * 4 + R] = 255;
                 this.texture_data[this.active_tex][i * 4 + G] = 255;
                 this.texture_data[this.active_tex][i * 4 + B] = 255;
@@ -336,8 +343,8 @@ class Game {
             this.gl.TEXTURE_2D,
             0, //LEVEL
             this.gl.RGBA, //internalFormat,
-            128, // WIDTH
-            128, // HEIGHT
+            this.texture_data_width,
+            this.texture_data_height,
             0, //border
             this.gl.RGBA, //srcFormat
             this.gl.UNSIGNED_BYTE, //srcType
@@ -348,8 +355,8 @@ class Game {
             this.com_gl.TEXTURE_2D,
             0, //LEVEL
             this.com_gl.RGBA, //internalFormat,
-            128, // WIDTH
-            128, // HEIGHT
+            this.texture_data_width,
+            this.texture_data_height,
             0, //border
             this.com_gl.RGBA, //srcFormat
             this.com_gl.UNSIGNED_BYTE, //srcType
@@ -389,8 +396,8 @@ class Game {
             this.com_gl.TEXTURE_2D,
             0, //LEVEL
             this.com_gl.RGBA, //internalFormat,
-            128, // WIDTH
-            128, // HEIGHT
+            this.texture_data_width,
+            this.texture_data_height,
             0, //border
             this.com_gl.RGBA, //srcFormat
             this.com_gl.UNSIGNED_BYTE, //srcType
