@@ -1,14 +1,15 @@
 <script src="script.js" type="text/javascript"></script>
-<body>
-    <canvas id="glcanvas"></canvas>
-</body>
-
 <script type="text/javascript">
    document.addEventListener('DOMContentLoaded', (event) => {
         const canvas = document.getElementById("glcanvas");
-        game = new Game(canvas, "/shader.vert.c", "/render.frag.c");
+        game = new Game(
+            canvas, "/shader.vert.c", "/render.frag.c", "/compute.frag.c");
         game.main();
     });
 </script>
 
-
+<body>
+    <canvas id="glcanvas"></canvas>
+    <br>
+    <button onclick="game.render()">render</button>
+</body>
