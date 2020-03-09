@@ -1,6 +1,6 @@
 # WebGL conway's game of life
 
-WIP
+[http://aneeshdurg.me/posts/webgl-game-of-life/](http://aneeshdurg.me/posts/webgl-game-of-life/)
 
 ### References
 
