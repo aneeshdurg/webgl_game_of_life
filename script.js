@@ -16,20 +16,22 @@ const R = 0, G = 1, B = 2, A = 3;
  * to visible blocks. The other computes the next game state. We need two gl
  * instances since one of them will be rendering a smaller area. Maybe the need
  * for two can be eliminated with viewports.
+ *
+ * The maximum possible canvas size is (512 * 5) ** 2
+ * Eventually this limitation could be removed if the textures can be
+ * dynamically initialized/resized. It shouldn't be too hard.
  */
 class Game {
     constructor(canvas, vertShaderUrl, fragShaderUrl, computeShaderUrl) {
         console.log("Creating game object...");
-        this.texture_data_width = 128;
-        this.texture_data_height = 128;
+        this.texture_data_width = 512;
+        this.texture_data_height = 512;
         this.texture_data_component_length = 4;// RGBA
 
         this.tile_width = 5;
         this.tile_height = 5;
 
         this.canvas = canvas;
-        this.canvas.width = 640;
-        this.canvas.height = 480;
         this.gl = this.canvas.getContext("webgl");
         assert(this.gl, "No webgl context found!");
 
@@ -90,6 +92,14 @@ class Game {
         this.setupTexture();
         console.log("Texture initialized!");
 
+
+        this.renderVars["u_canvas_width"] = this.gl.getUniformLocation(this.shaderProgram, "u_canvas_width");
+        this.renderVars["u_canvas_height"] = this.gl.getUniformLocation(this.shaderProgram, "u_canvas_height");
+        this.renderVars["u_texture_size"] = this.gl.getUniformLocation(this.shaderProgram, "u_texture_size");
+        this.computeVars["u_texture_size"] = this.com_gl.getUniformLocation(this.computeProgram, "u_texture_size");
+        this._resizeHandlerEnabled = true;
+        this.resizeHandler();
+
         // TODO add a way to modify this
         this.gl.uniform1f(
             this.gl.getUniformLocation(this.shaderProgram, "u_tile_width"), this.tile_width);
@@ -101,6 +111,21 @@ class Game {
         this.canvas.addEventListener('click', this.clickHandler.bind(this));
         this.canvas.addEventListener('mousemove', this.moveHandler.bind(this));
         this.render();
+    }
+
+    resizeHandler() {
+        if (this._resizeHandlerEnabled) {
+            console.log("enabled!")
+            this.gl.uniform1f(this.renderVars["u_canvas_width"], this.canvas.width);
+            this.gl.uniform1f(this.renderVars["u_canvas_height"], this.canvas.height);
+            this.gl.uniform2f(this.renderVars["u_texture_size"], this.texture_data_width, this.texture_data_height);
+            this.com_gl.uniform2fv(
+                this.computeVars["u_texture_size"],
+                new Float32Array([this.texture_data_width, this.texture_data_height]));
+
+            console.log("rh:", this.canvas.width, this.canvas.height, this.texture_data_width, this.texture_data_height);
+            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
     }
 
     moveHandler(e) {
@@ -406,6 +431,9 @@ class Game {
     }
 
     setPixel(x, y, value) {
+        if (x > this.texture_data_width)
+            return;
+
         const idx = this.texture_data_component_length * (y * this.texture_data_width + x);
 
         this.texture_data[this.active_tex][idx + R] = value[R];
@@ -415,11 +443,13 @@ class Game {
     }
 
     getPixel(x, y) {
+        if (x > this.texture_data_width)
+            return [0, 0, 0, 255];
+
         const idx = this.texture_data_component_length * (y * this.texture_data_width + x);
-        return [
-            this.texture_data[this.active_tex][idx + R],
-            this.texture_data[this.active_tex][idx + G],
-            this.texture_data[this.active_tex][idx + B],
-            this.texture_data[this.active_tex][idx + A]];
+        const active_tex = this.texture_data[this.active_tex];
+        console.log("    Updating "+ idx + "/" + active_tex.length);
+        console.log("    " + idx >= active_tex.length);
+        return [active_tex[idx + R], active_tex[idx + G], active_tex[idx + B], active_tex[idx + A]];
     }
 }
