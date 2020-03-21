@@ -7,23 +7,15 @@ precision mediump int;
 #endif
 
 uniform sampler2D u_texture;
-
-#define CANVAS_WIDTH   640.0
-#define CANVAS_HEIGHT  480.0
-
-uniform float u_tile_width;
-uniform float u_tile_height;
-
-// TODO pass this in via js
-vec2 textureSize = vec2(128.0, 128.0);
+uniform vec2 u_texture_size;
 
 float
 neighborState(int x_off, int y_off)
 {
     // Can look at any channel except alpha here
-    return texture2D(
-        u_texture,
-        (gl_FragCoord.xy + vec2(float(x_off), float(y_off))) / textureSize).r;
+    float x = (gl_FragCoord.x + float(x_off)) / u_texture_size.x;
+    float y = (gl_FragCoord.y + float(y_off)) / u_texture_size.y;
+    return texture2D(u_texture, vec2(x, y)).r;
 }
 
 float

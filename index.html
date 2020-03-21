@@ -1,15 +1,46 @@
 <script src="script.js" type="text/javascript"></script>
 <script type="text/javascript">
-   document.addEventListener('DOMContentLoaded', (event) => {
-        const canvas = document.getElementById("glcanvas");
-        game = new Game(
-            canvas, "/shader.vert.c", "/render.frag.c", "/compute.frag.c");
-        game.main();
-    });
+     document.addEventListener('DOMContentLoaded', (event) => {
+         const canvas = document.getElementById("glcanvas");
+         canvas.width = 640;
+         canvas.height = 480;
+
+         game = new Game(
+             canvas, "./shader.vert.c", "./render.frag.c", "./compute.frag.c");
+         game.setFps("60");
+
+         new ResizeObserver((e) => {
+             console.assert(e.length == 1, "Should only observe canvas!");
+             const size = e[0].contentRect;
+             console.log(size.width, size.height);
+             canvas.width = size.width;
+             canvas.height = size.height;
+             game.resizeHandler();
+         }).observe(canvas);
+
+         game.main();
+      });
 </script>
 
+<style>
+.container {
+    resize: both;
+    border: 2px solid;
+    padding: 2em;
+    overflow: auto;
+    width: 80%;
+}
+
+.display {
+    width: 100%;
+    height: 100%;
+}
+</style>
+
 <body>
-    <canvas id="glcanvas"></canvas>
+    <div class="container">
+        <canvas id="glcanvas" class="display"></canvas>
+    </div>
     <br>
     <!-- debug controls
         <button onclick="game.render()">render</button>
@@ -17,7 +48,7 @@
     -->
     <button onclick="game.pause()">pause</button>
     <button onclick="game.step()">step</button>
-    <input id="fps" value="0.75"></input>
+    <input id="fps" value="60"></input>
     <button onclick="game.setFps(document.getElementById('fps').value)">fps</button>
     <button onclick="game.randomize(0.25)">randomize!</button>
 </body>
